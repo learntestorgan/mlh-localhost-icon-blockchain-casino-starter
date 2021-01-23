@@ -55,7 +55,32 @@ class SlotMachine(IconScoreBase):
             
         payout = min(amount * PAYOUT_MULTIPLIER, balance)
             
-        # Add code here!
+        seed = (str(bytes.hex(self.tx.hash)) + str(self.now()))
+        result = (int.from_bytes(sha3_256(seed.encode()), "big") % 10)
+        win = (result == 0)
+
+        json_result = {
+            "index": self.tx.index,
+            "nonce": self.tx.nonce,
+            "from": str(self.tx.origin),
+            "timestamp": self.tx.timestamp,
+            "txHash": bytes.hex(self.tx.hash),
+            "amount": amound,
+            "result": win,
+        }
+
+        self._play_results_array.put(str(json_result))
+
+        if win:
+            Logger.info(f"Amount owed to winner: {payout}", TAG)
+            try:
+                self.icx.transfer(self.msg.sender, payout)
+                self.FundTransfer(self.msg.sender, payout, False)
+                Logger.info(f"Win!. Sent winner ({self.msg.sender}) {payout}.", TAG)
+            except:
+                Logger.info(f"Problem. Winnings not sent. Returning bet.", TAG)
+        else:
+            Logger.info(f"Plaer lost. ICX retained in treasury.", TAG) 
 
     @external(readonly=True)
     def get_results(self) -> dict:
